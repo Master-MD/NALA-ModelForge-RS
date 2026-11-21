@@ -1,0 +1,61 @@
+#version 450
+// NALA-ModelForge-RS (RSI-MF-01) — Vulkan GLSL 450 Compute Shader
+// Fused Randomized Walsh-Hadamard Transform (H * D * x) + Bonsai 1-Bit g128 Bit-Packing.
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+struct Bonsai1BitBlock128 {
+    float scale;
+    uint bits[4];
+};
+
+layout(std430, binding = 0) readonly buffer InWeights { float weights[]; };
+layout(std430, binding = 1) writeonly buffer OutBlocks { Bonsai1BitBlock128 blocks[]; };
+layout(push_constant) uniform PushConsts { uint total_blocks; uint seed_lo; };
+
+shared float s_buf[128];
+shared float s_abs[128];
+
+void main() {
+    uint gid = gl_WorkGroupID.x;
+    uint tid = gl_LocalInvocationID.x;
+    if (gid >= total_blocks) return;
+
+    float w = weights[gid * 128u + tid];
+    uint h = (seed_lo ^ (tid * 2654435761u)) * 2246822519u;
+    if ((h & 0x80000000u) != 0u) w = -w;
+    s_buf[tid] = w;
+    barrier();
+
+    for (uint stride = 1u; stride < 128u; stride <<= 1u) {
+        uint grp = tid / stride;
+        uint lane = tid % stride;
+        uint i0 = grp * (stride << 1u) + lane;
+        if (i0 + stride < 128u) {
+            float x = s_buf[i0];
+            float y = s_buf[i0 + stride];
+            s_buf[i0] = x + y;
+            s_buf[i0 + stride] = x - y;
+        }
+        barrier();
+    }
+
+    float rot = s_buf[tid] * 0.088388347648;
+    s_buf[tid] = rot;
+    s_abs[tid] = abs(rot);
+    barrier();
+
+    for (uint s = 64u; s > 0u; s >>= 1u) {
+        if (tid < s) s_abs[tid] += s_abs[tid + s];
+        barrier();
+    }
+
+    if (tid < 4u) {
+        uint word = 0u;
+        uint off = tid * 32u;
+        for (uint b = 0u; b < 32u; ++b) {
+            if (s_buf[off + b] >= 0.0) word |= (1u << b);
+        }
+        blocks[gid].bits[tid] = word;
+        if (tid == 0u) blocks[gid].scale = max(s_abs[0] / 128.0, 1e-8);
+    }
+}

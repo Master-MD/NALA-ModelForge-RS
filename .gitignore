@@ -1,0 +1,8 @@
+/target
+/dist
+/.ncsp_snapshots
+/data
+*.ncsp.bak
+.DS_Store
+assets/AppIcon.iconset
+assets/*.icns

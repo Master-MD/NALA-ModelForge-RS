@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NALA-ModelForge-RS · Native Rust LLM Precision Studio</title>
+<style>
+:root {
+  --bg: #090b0f;
+  --panel: #11151c;
+  --panel-2: #171c26;
+  --panel-3: #1e2532;
+  --border: rgba(255,255,255,0.085);
+  --border-strong: rgba(255,255,255,0.16);
+  --text: #edf1f7;
+  --muted: #8b95a5;
+  --emerald: #10b981;
+  --emerald-dim: rgba(16,185,129,0.14);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,0.14);
+  --sky: #38bdf8;
+  --sky-dim: rgba(56,189,248,0.14);
+  --ruby: #ef4444;
+  --ruby-dim: rgba(239,68,68,0.14);
+  --steel: #94a3b8;
+  --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; background: var(--bg); color: var(--text);
+  font-family: var(--sans); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 18px; background: rgba(9,11,15,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 11px; }
+.brand-mark {
+  width: 30px; height: 30px; border-radius: 7px;
+  background: linear-gradient(145deg, #10b981 0%, #047857 100%);
+  display: grid; place-items: center; font-weight: 800; color: #05130d; font-size: 13px;
+  letter-spacing: -0.03em; box-shadow: 0 0 0 1px rgba(255,255,255,0.15) inset;
+}
+.brand-title { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+.brand-sub { font-size: 11px; color: var(--muted); }
+.top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--panel);
+  font-size: 11px; color: var(--muted);
+}
+.pill strong { color: var(--text); font-weight: 600; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); }
+.dot.warn { background: var(--amber); }
+.dot.err { background: var(--ruby); }
+.lang-bar { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.lang-btn {
+  background: transparent; color: var(--muted); border: 0; padding: 4px 7px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.lang-btn.active { background: var(--panel-3); color: var(--text); }
+
+.nav-tabs {
+  display: flex; gap: 4px; padding: 8px 18px 0; border-bottom: 1px solid var(--border);
+  background: #0d1016; overflow-x: auto;
+}
+.nav-tab {
+  background: transparent; border: 0; border-bottom: 2px solid transparent;
+  color: var(--muted); padding: 9px 13px; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: color 0.15s, border-color 0.15s;
+}
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--emerald); border-bottom-color: var(--emerald); }
+
+.workspace { max-width: 1460px; margin: 0 auto; padding: 16px 18px 36px; }
+.pane { display: none; }
+.pane.active { display: block; }
+
+.grid-2 { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 1080px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px;
+}
+.card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 11px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.card-title { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #cbd5e1; }
+.badge {
+  font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
+}
+.badge.ok { color: var(--emerald); background: var(--emerald-dim); border-color: rgba(16,185,129,0.35); }
+.badge.warn { color: var(--amber); background: var(--amber-dim); border-color: rgba(245,158,11,0.35); }
+.badge.err { color: var(--ruby); background: var(--ruby-dim); border-color: rgba(239,68,68,0.35); }
+.badge.sky { color: var(--sky); background: var(--sky-dim); border-color: rgba(56,189,248,0.35); }
+
+.dropzone {
+  border: 1.5px dashed rgba(16,185,129,0.45); border-radius: 9px;
+  background: linear-gradient(180deg, rgba(16,185,129,0.05), rgba(17,21,28,0.6));
+  padding: 16px; text-align: center; transition: border-color 0.15s, background 0.15s;
+}
+.dropzone.dragover {
+  border-color: var(--emerald); background: rgba(16,185,129,0.14);
+}
+.dropzone-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.dropzone-sub { font-size: 11.5px; color: var(--muted); margin-bottom: 10px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+input[type="text"], input[type="number"], select, textarea {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border-strong);
+  border-radius: 6px; padding: 7px 9px; font-size: 12.5px; font-family: var(--sans);
+  outline: none; width: 100%;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--emerald); }
+input[type="range"] { width: 100%; accent-color: var(--emerald); cursor: pointer; }
+label.field-label { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border-strong);
+  background: var(--panel-2); color: var(--text); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.14s, border-color 0.14s; white-space: nowrap;
+}
+.btn:hover { background: var(--panel-3); border-color: rgba(255,255,255,0.28); }
+.btn.primary { background: var(--emerald); color: #05130d; border-color: var(--emerald); font-weight: 700; }
+.btn.primary:hover { background: #34d399; }
+.btn.amber { background: var(--amber-dim); color: var(--amber); border-color: rgba(245,158,11,0.45); }
+.btn.ruby { background: var(--ruby-dim); color: #fca5a5; border-color: rgba(239,68,68,0.45); }
+.btn.sm { padding: 4px 8px; font-size: 11px; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+@media (max-width: 780px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+.kpi {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 11px;
+}
+.kpi-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi-val { font-size: 19px; font-weight: 800; margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.kpi-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
+.mem-bar-wrap {
+  background: #0a0d12; border: 1px solid var(--border); border-radius: 7px;
+  height: 26px; display: flex; overflow: hidden; margin: 10px 0 8px;
+}
+.mem-seg { height: 100%; transition: width 0.22s ease; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #04100b; overflow: hidden; white-space: nowrap; }
+.seg-code { background: #10b981; }
+.seg-attn { background: #34d399; }
+.seg-embed { background: #6ee7b7; }
+.seg-1bit { background: #f59e0b; color: #1c1002; }
+.seg-kv { background: #38bdf8; color: #041521; }
+.seg-rt { background: #94a3b8; color: #0b111b; }
+.seg-over { background: #ef4444; color: #fff; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+.rec-banner {
+  margin-top: 10px; padding: 10px 12px; border-radius: 7px; font-size: 12px;
+  border: 1px solid rgba(16,185,129,0.35); background: rgba(16,185,129,0.08);
+}
+.rec-banner.warn { border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.1); }
+
+table.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.tbl th, table.tbl td {
+  text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border);
+}
+table.tbl th { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+table.tbl tr:hover td { background: rgba(255,255,255,0.02); }
+
+pre.codebox {
+  background: #080a0e; border: 1px solid var(--border); border-radius: 7px;
+  padding: 10px 12px; font-family: var(--mono); font-size: 11.5px; color: #d1fae5;
+  overflow-x: auto; max-height: 260px; margin: 6px 0 0; white-space: pre-wrap;
+}
+
+.heatmap-grid {
+  display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; margin-top: 8px;
+}
+.hm-cell {
+  height: 16px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.08);
+  transition: transform 0.1s;
+}
+.hm-cell:hover { transform: scale(1.25); z-index: 2; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center; z-index: 100;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  width: min(500px, 92vw); background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: 11px; padding: 18px 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.65);
+}
+.modal h3 { margin: 0 0 8px; font-size: 15px; }
+.modal p { margin: 0 0 14px; color: var(--muted); font-size: 12.5px; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.toggle-row:last-child { border-bottom: 0; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">MF</div>
+    <div>
+      <div class="brand-title">NALA-ModelForge-RS <span class="badge ok mono" id="verBadge">v1.5.0</span></div>
+      <div class="brand-sub" data-i18n="subtitle">100% Native Safe Rust + Native Metal GPU (0% Python) · Wave-1 &amp; Wave-2 Engines · 28 MCP Tools</div>
+    </div>
+  </div>
+  <div class="top-right">
+    <div class="pill"><span class="dot" id="hwDot"></span><span id="hwPill">Probing Hardware...</span></div>
+    <div class="pill"><span class="dot" id="ragDot"></span><span id="ragPill">NALA-RAG :18700</span></div>
+    <div class="pill"><strong>MCP:</strong> 28 Tools</div>
+    <div class="lang-bar">
+      <button class="lang-btn active" onclick="setLang('de')">DE</button>
+      <button class="lang-btn" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" onclick="setLang('fr')">FR</button>
+      <button class="lang-btn" onclick="setLang('it')">IT</button>
+      <button class="lang-btn" onclick="setLang('rm')">RM</button>
+    </div>
+  </div>
+</header>
+
+<nav class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('forge', this)" data-i18n="tab_forge">1. Forge & Precision Studio</button>
+  <button class="nav-tab" onclick="switchTab('slots', this)" data-i18n="tab_slots">2. Multi-User & Agenten KV</button>
+  <button class="nav-tab" onclick="switchTab('abliterate', this)" data-i18n="tab_ablit">3. True Uncensoring / Abliteration</button>
+  <button class="nav-tab" onclick="switchTab('lora', this)" data-i18n="tab_lora">4. LoRA Stacker · NALA-RAG · Grid</button>
+  <button class="nav-tab" onclick="switchTab('recipes', this)" data-i18n="tab_recipes">5. Recipes & Live Console</button>
+  <button class="nav-tab" onclick="switchTab('wave1', this)">6. Wave-1 &amp; 2 Engines (MF-01..08)</button>
+  <button class="nav-tab" onclick="switchTab('dream', this)" data-i18n="tab_dream">7. Dream / REA / RSI Cockpit</button>
+  <button class="nav-tab" onclick="switchTab('help', this)" data-i18n="tab_help">8. Hilfe &amp; 5-Sprachen Guide</button>
+</nav>
+
+<main class="workspace">
+
+  <!-- TAB 1: FORGE & PRECISION STUDIO -->
+  <section id="pane-forge" class="pane active">
+    <div class="grid-2">
+      <!-- LEFT COLUMN: INPUT + PRECISION CONTROLS -->
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="sec_model">Modell Drag & Drop / Zero-Copy Inspektor</span>
+            <span class="badge sky mono" id="modelFmtBadge">PRESET</span>
+          </div>
+
+          <div id="dropZone" class="dropzone">
+            <div class="dropzone-title" data-i18n="drop_title">GGUF, Safetensors oder HuggingFace-Ordner hier reinziehen</div>
+            <div class="dropzone-sub" data-i18n="drop_sub">Zero-Copy Header-Scan in Pure Rust (&lt; 2 ms auch bei 1.5 TB Modellen · kein RAM-Copy!)</div>
+            <div class="row" style="justify-content:center;">
+              <button class="btn primary" onclick="pickNativeModel()" data-i18n="btn_browse">Modell / Ordner wählen</button>
+              <select id="presetSelect" style="max-width:340px;" onchange="selectPreset(this.value)"></select>
+            </div>
+            <div class="row mt-8" style="justify-content:center;">
+              <input id="manualPath" type="text" placeholder="/pfad/zum/modell.gguf oder /pfad/zum/hf-ordner" style="max-width:390px;">
+              <button class="btn" onclick="inspectManualPath()">Inspect</button>
+            </div>
+          </div>
+
+          <div class="grid-4 mt-12" id="modelMetaGrid"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="sec_hw">Ziel-Hardware & Optimierungs-Backend</span>
+            <span class="badge mono" id="hwBwBadge">819 GB/s</span>
+          </div>
+          <div class="grid-2" style="grid-template-columns: 1.35fr 0.65fr;">
+            <div>
+              <label class="field-label" data-i18n="lbl_hw_profile">Hardware-Profil</label>
+              <select id="hwSelect" onchange="onHwChange()"></select>
+            </div>
+            <div>
+              <label class="field-label" data-i18n="lbl_export_fmt">Ziel-Format</label>
+              <select id="fmtSelect" onchange="recalcPlan()">
+                <option value="MLX">MLX (Apple Silicon)</option>
+                <option value="GGUF">GGUF (llama.cpp / Strata)</option>
+                <option value="CUDA_NVFP4">CUDA / NVFP4 (NVIDIA)</option>
+                <option value="ROCM_VULKAN">ROCm / Vulkan (AMD)</option>
+                <option value="NALA_PARALLAX">NALA-Grid Parallax 4D</option>
+              </select>
+            </div>
+          </div>
+          <div id="customHwRow" class="grid-3 mt-8" style="display:none;">
+            <div>
+              <label class="field-label">VRAM / Unified RAM (GB)</label>
+              <input id="customRamGb" type="number" value="512" min="8" max="4096" oninput="recalcPlan()">
+            </div>
+            <div>
+              <label class="field-label">Speicherbandbreite (GB/s)</label>
+              <input id="customBwGbs" type="number" value="819" min="30" max="16000" oninput="recalcPlan()">
+            </div>
+            <div>
+              <label class="field-label">Vendor</label>
+              <select id="customVendor" onchange="recalcPlan()">
+                <option value="apple_mlx">Apple Silicon (MLX)</option>
+                <option value="nvidia_cuda">NVIDIA (CUDA)</option>
+                <option value="amd_vulkan">AMD (ROCm / Vulkan)</option>
+                <option value="nala_grid">NALA-Grid Cluster</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="sec_surgical">Domain-Selective Mixed-Precision & MoE Expert Pruning</span>
+            <span class="badge ok">Bonsai 1-Bit + Gyro-Coder</span>
+          </div>
+
+          <div class="mt-8">
+            <div class="row-between">
+              <label class="field-label" style="margin:0;">Coding, Logik, Architektur & Tool-Calling Anteil (bleibt FETT)</label>
+              <span class="mono" style="color:var(--emerald); font-weight:700;" id="codingShareVal">32%</span>
+            </div>
+            <input id="codingShare" type="range" min="15" max="90" value="32" oninput="document.getElementById('codingShareVal').textContent=this.value+'%'; recalcPlan()">
+          </div>
+
+          <div class="mt-8">
+            <div class="row-between">
+              <label class="field-label" style="margin:0;">MoE Structural Expert Pruning (wie Gyro-Coder: 512 → 256 Experten)</label>
+              <span class="mono" style="color:var(--amber); font-weight:700;" id="moePruneVal">25%</span>
+            </div>
+            <input id="moePrune" type="range" min="0" max="60" value="25" oninput="document.getElementById('moePruneVal').textContent=this.value+'%'; recalcPlan()">
+          </div>
+
+          <div class="grid-2 mt-12">
+            <div>
+              <label class="field-label">Sekundäre / Nicht-Coding Gewichte</label>
+              <select id="secQuant" onchange="recalcPlan()">
+                <option value="BONSAI_1BIT">Bonsai 1-Bit g128 (1.125 bpw · 0/1)</option>
+                <option value="TERNARY_158">BitNet 1.58-Bit Ternary (1.625 bpw)</option>
+                <option value="GYRO_IQ2_XXS">Gyro-Coder 2-Bit Trellis (2.15 bpw)</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">Coding & Logik Präzision</label>
+              <select id="codingOverride" onchange="recalcPlan()">
+                <option value="AUTO">AUTO-FIT (Maximal mögliche Bit-Tiefe)</option>
+                <option value="BF16">BF16 (16-Bit Voll)</option>
+                <option value="Q8_0">Q8_0 (8-Bit Studio)</option>
+                <option value="Q6_K">Q6_K (6-Bit Präzision)</option>
+                <option value="Q5_K_M">Q5_K_M (5-Bit Balanced)</option>
+                <option value="Q4_K_M">Q4_K_M (4-Bit Compact)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="toggle-row mt-8">
+            <div>
+              <strong>Gyro / Hadamard-Rotation (FWHT) vor 1-Bit Kompression</strong>
+              <div style="font-size:11px; color:var(--muted);">Verteilt Outlier-Kanäle orthogonal → verhindert Perplexity-Kollaps bei 1-Bit</div>
+            </div>
+            <input id="hadamardToggle" type="checkbox" checked onchange="recalcPlan()">
+          </div>
+          <div class="toggle-row">
+            <div>
+              <strong>NALA-Strata-RS NVMe Disk-Parking für inaktive Agenten-Slots</strong>
+              <div style="font-size:11px; color:var(--muted);">Parkt ruhende Agenten KV-Caches auf PCIe-NVMe statt teures VRAM zu blockieren</div>
+            </div>
+            <input id="strataToggle" type="checkbox" checked onchange="recalcPlan()">
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: TELEMETRY, MEMORY BAR, LAYER HEATMAP & 2-CLICK BUILD -->
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" data-i18n="sec_solver">Auto-Fit Roofline & Speicher-Budget</span>
+            <span class="badge ok mono" id="fitStatusBadge">CALCULATING...</span>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi">
+              <div class="kpi-label">Coding Core</div>
+              <div class="kpi-val" style="color:var(--emerald);" id="kpiCodingQ">—</div>
+              <div class="kpi-sub" id="kpiAttnQ">Attn: —</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Eff. Bits / Weight</div>
+              <div class="kpi-val" id="kpiBpw">—</div>
+              <div class="kpi-sub" id="kpiRatio">vs FP16: —</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Coding Retention</div>
+              <div class="kpi-val" style="color:var(--emerald);" id="kpiRet">—</div>
+              <div class="kpi-sub" id="kpiExperts">Experts: —</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Est. Decode Speed</div>
+              <div class="kpi-val" style="color:var(--sky);" id="kpiTps">—</div>
+              <div class="kpi-sub" id="kpiPrefill">Prefill: —</div>
+            </div>
+          </div>
+
+          <div class="row-between">
+            <span style="font-size:11.5px; color:var(--muted);">Speicherverteilung vs. nutzbares Ziel-VRAM/RAM</span>
+            <span class="mono" style="font-size:12px; font-weight:700;" id="memSummaryText">— / — GB</span>
+          </div>
+          <div class="mem-bar-wrap" id="memBar"></div>
+          <div class="legend" id="memLegend"></div>
+
+          <div class="rec-banner" id="recBanner">Berechne optimalen Bauplan...</div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Layer & Expert Präzisions-Heatmap &amp; Real-Tensor Inspektor</span>
+            <span class="badge mono" id="heatmapSummary">Router FP16 · Attention High · Rest 1-Bit</span>
+          </div>
+          <div style="font-size:11px; color:var(--muted);">Jede Zelle repräsentiert einen Transformer-Block (Grün = Coding/Logic FETT, Bernstein = 1-Bit Bonsai komprimiert, Dunkel = Geprunte MoE-Experten):</div>
+          <div class="heatmap-grid" id="layerHeatmap"></div>
+          <div style="max-height:155px; overflow-y:auto; margin-top:10px; border:1px solid var(--border); border-radius:6px;">
+            <table class="tbl">
+              <thead><tr><th>Tensor</th><th>Zone</th><th>Typ</th><th>Grösse</th></tr></thead>
+              <tbody id="tensorSampleBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">2-Klick Execution Gate (NCSP v2.5 · Zero-Overwrite)</span>
+            <span class="badge ok">sHeriFF Guard</span>
+          </div>
+          <label class="field-label">Export-Zielordner (Original-Modell wird NIEMALS überschrieben)</label>
+          <input id="exportDir" type="text" value="" placeholder="~/Documents/NALA-ModelForge-Exports">
+          <div class="row mt-12">
+            <button class="btn primary" onclick="requestTwoClick('export_bundle', 'SHA-256 Recipe Bundle + Build Scripts exportieren')">1. Recipe Bundle bauen</button>
+            <button class="btn amber" onclick="requestTwoClick('quantize_gguf_live', 'ECHTE llama-quantize Surgical-Quantisierung auf lokalem GGUF starten')">2. Live GGUF Quantisieren</button>
+            <button class="btn" onclick="requestTwoClick('rust_kernel_suite', 'Pure-Rust 1-Bit Bonsai + Hadamard + Abliteration + LoRA Benchmark starten')">3. Rust Kernels testen</button>
+          </div>
+          <div id="quickBenchOut" class="mt-8" style="font-size:11.5px; color:var(--muted);"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: MULTI-USER & ASYMMETRIC AGENT CONTEXT PLANNER -->
+  <section id="pane-slots" class="pane">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Asymmetrischer Multi-User & Agenten KV-Cache Planer (PagedAttention + Radix Prefix Sharing)</span>
+        <div class="row">
+          <button class="btn sm" onclick="loadMikeSwarmTemplate()">Mike 16-Slot Preset (2×1M + 14×256K)</button>
+          <button class="btn sm primary" onclick="addSlotGroup()">+ Gruppe hinzufügen</button>
+        </div>
+      </div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">
+        Konfiguriere heterogene Kontextfenster exakt nach Rolle: z. B. 1 Hauptuser (Mensch, 1M Tokens) + 1 Orchestrator (1M Tokens) + 14 Spezialisten-Agenten (je 256K Tokens). Der Auto-Fit Solver reserviert diesen KV-Cache verbindlich vor der Gewichts-Quantisierung!
+      </div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Rolle / Bezeichnung</th>
+            <th>Typ</th>
+            <th>Anzahl</th>
+            <th>Kontextfenster (Tokens)</th>
+            <th>KV-Quant</th>
+            <th>Aktiv im VRAM</th>
+            <th>Prefix-Share %</th>
+            <th>VRAM / NVMe</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="slotTableBody"></tbody>
+      </table>
+      <div class="row-between mt-12">
+        <div class="mono" id="slotTotalsText" style="font-size:12px; color:var(--sky);"></div>
+        <div class="mono" id="yarnInfoText" style="font-size:12px; color:var(--amber);"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: TRUE UNCENSORING / ABLITERATION LAB -->
+  <section id="pane-abliterate" class="pane">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Echtes Uncensoring: Norm-Preserving Biprojected Abliteration</span>
+          <span class="badge ruby">Gewichts-Ebene · Kein System-Prompt-Trick</span>
+        </div>
+        <p style="color:var(--muted); margin-top:0;">
+          Ein System-Prompt kratzt nur an der Oberfläche. Echtes Uncensoring greift direkt in die Residual-Stream-Gewichte (<span class="mono">attn_output</span> &amp; <span class="mono">ffn_down</span>) ein:
+          Wir berechnen den Verweigerungs-Richtungsvektor <span class="mono">r = norm(mean(H_refused) - mean(H_harmless))</span>, orthogonalisieren ihn gegen den Coding-/Logik-Unterraum (<span class="mono">Biprojection</span>) und entfernen ihn mit Norm-Erhaltung:
+          <span class="mono">W' = W - α · (W · r_orth) · r_orthᵀ</span>.
+        </p>
+        <div class="toggle-row">
+          <div><strong>Abliteration im Forge-Plan aktivieren</strong></div>
+          <input id="ablitEnable" type="checkbox" checked onchange="recalcPlan()">
+        </div>
+        <div class="toggle-row">
+          <div>
+            <strong>Coding- &amp; Logik-Unterraum schützen (Biprojected Orthogonalization)</strong>
+            <div style="font-size:11px; color:var(--muted);">Verhindert Intelligenzverlust beim Coden/Mathe (Cosine &gt; 0.9999)</div>
+          </div>
+          <input id="ablitProtect" type="checkbox" checked onchange="recalcPlan()">
+        </div>
+        <div class="mt-12">
+          <div class="row-between">
+            <label class="field-label" style="margin:0;">Abliteration-Stärke α (1.00 = Vollständige Orthogonalisierung)</label>
+            <span class="mono" id="ablitAlphaVal" style="color:var(--ruby); font-weight:700;">1.00</span>
+          </div>
+          <input id="ablitAlpha" type="range" min="0.2" max="1.2" step="0.05" value="1.0" oninput="document.getElementById('ablitAlphaVal').textContent=parseFloat(this.value).toFixed(2); recalcPlan()">
+        </div>
+        <div class="row mt-12">
+          <button class="btn ruby" onclick="runAbliterationKernel()">Pure-Rust Abliteration-Kernel jetzt live verifizieren</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Live Mathematische Verifikation (Pure Rust Kernel)</span>
+          <span class="badge ok" id="ablitStatusBadge">READY</span>
+        </div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);" id="ablitKpis">
+          <div class="kpi"><div class="kpi-label">Refusal Suppression</div><div class="kpi-val" style="color:var(--emerald);" id="abSupp">—</div></div>
+          <div class="kpi"><div class="kpi-label">Coding Subspace Cosine</div><div class="kpi-val" style="color:var(--sky);" id="abCos">—</div></div>
+          <div class="kpi"><div class="kpi-label">Refusal Norm Vorher</div><div class="kpi-val" id="abBefore">—</div></div>
+          <div class="kpi"><div class="kpi-label">Refusal Norm Nachher</div><div class="kpi-val" style="color:var(--emerald);" id="abAfter">—</div></div>
+        </div>
+        <pre class="codebox" id="ablitRaw">Klicke auf "Pure-Rust Abliteration-Kernel jetzt live verifizieren" um die Matrix-Orthogonalisierung auszuführen.</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 4: LORA STACKER, NALA-RAG & NALA-GRID -->
+  <section id="pane-lora" class="pane">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Multi-LoRA Adapter Stacker &amp; W + (α/r)·BA Merger</span>
+          <div class="row">
+            <button class="btn sm" onclick="pickNativeLora()">LoRA-Datei wählen (.gguf/.safetensors)</button>
+            <button class="btn sm primary" onclick="addLoraRow()">+ LoRA anhängen</button>
+          </div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Adapter-Name / Datei</th><th>Rank</th><th>Scale α</th><th></th></tr></thead>
+          <tbody id="loraTableBody"></tbody>
+        </table>
+        <div class="row mt-12">
+          <button class="btn primary" onclick="runLoraMergeVerify()">Rust Multi-LoRA Merge &amp; Spectral-Drift prüfen</button>
+        </div>
+        <pre class="codebox mt-8" id="loraOut">Bereit zur Multi-LoRA Fusion.</pre>
+
+        <div class="card-head mt-12">
+          <span class="card-title">NALA-MCP-cORe Live-Verbindung (28 Tools · Zero-Python)</span>
+          <div class="row">
+            <button class="btn sm" onclick="probeMcpCore()">Status prüfen</button>
+            <button class="btn sm primary" onclick="registerMcpCoreLive()">MCP-cORe jetzt verbinden</button>
+          </div>
+        </div>
+        <pre class="codebox" id="mcpCoreOut">Prüfe NALA-MCP-cORe AppRegistry &amp; IDE MCP-Configs...</pre>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">NALA-RAG Bridge (Evidence-Lock :18700)</span>
+            <button class="btn sm" onclick="probeRag()">Live Probe</button>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <strong>NALA-RAG Kontext im Modell-Pipeline verbinden</strong>
+              <div style="font-size:11px; color:var(--muted);">Reserviert Evidence-Lock Chunks aus Qdrant + SQLite FTS5 im Token-Fenster</div>
+            </div>
+            <input id="ragEnable" type="checkbox" checked onchange="recalcPlan()">
+          </div>
+          <div class="mt-8">
+            <label class="field-label">Reservierte RAG-Kontext-Tokens pro Anfrage</label>
+            <input id="ragTokens" type="number" value="32768" min="2048" max="262144" step="4096" oninput="recalcPlan()">
+          </div>
+          <pre class="codebox mt-8" id="ragProbeOut">Prüfe http://127.0.0.1:18700/v1/health ...</pre>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">NALA-Grid Cluster &amp; Hardware-Beschleuniger (Opt-In Zero-PII)</span>
+            <button class="btn sm" onclick="probeGrid()">Cluster prüfen</button>
+          </div>
+          <div style="font-size:11.5px; color:var(--muted); margin-bottom:8px;">
+            Standardmässig 100% lokal (<span class="mono">127.0.0.1</span>). Eigene NALA-Grid Knoten werden lokal in <span class="mono">~/.config/nala-modelforge/grid.json</span> (chmod 0600) konfiguriert — niemals im Binary hardcodiert!
+          </div>
+          <pre class="codebox" id="gridProbeOut">Prüfe lokale Beschleuniger &amp; opt-in Grid...</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 5: SURGICAL RECIPES & LIVE CONSOLE -->
+  <section id="pane-recipes" class="pane">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Generiertes tensor_types.txt (Surgical Mixed-Precision)</span>
+          <button class="btn sm" onclick="copyText('recipeTensorTypes')">Kopieren</button>
+        </div>
+        <pre class="codebox" id="recipeTensorTypes"></pre>
+
+        <div class="card-head mt-12">
+          <span class="card-title">GGUF Calibration &amp; Quantize Befehl (llama.cpp)</span>
+          <button class="btn sm" onclick="copyText('recipeGguf')">Kopieren</button>
+        </div>
+        <pre class="codebox" id="recipeGguf"></pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">MLX (Apple Silicon) &amp; Multi-User Server Launch</span>
+          <button class="btn sm" onclick="copyText('recipeServe')">Kopieren</button>
+        </div>
+        <pre class="codebox" id="recipeMlx"></pre>
+        <pre class="codebox mt-8" id="recipeServe"></pre>
+
+        <div class="card-head mt-12">
+          <span class="card-title">Live Job Console &amp; Rust Kernel Benchmark</span>
+          <button class="btn sm" onclick="refreshJobs()">Aktualisieren</button>
+        </div>
+        <pre class="codebox" id="jobConsole">Noch keine Jobs ausgeführt. Nutze das 2-Klick Execution Gate im Forge-Tab.</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 6: WAVE-1 LIVE ENGINES (RSI-MF-01..04) -->
+  <section id="pane-wave1" class="pane">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">RSI-MF-01 · Metal/Vulkan Shader + Parallel-SIMD 1-Bit Bonsai Kernel</span>
+          <span class="badge ok">LIVE v1.3.0</span>
+        </div>
+        <div style="font-size:11.5px; color:var(--muted); margin-bottom:8px;">Kompiliert den eingebetteten Apple Metal MSL Shader (<span class="mono">bonsai_hadamard.metal</span>) nativ und misst Multi-Core Parallel-SIMD vs. Single-Thread Durchsatz bei 0.000000 Bit-Drift.</div>
+        <div class="row">
+          <button class="btn primary" onclick="runWave1Mf01()">MF-01 Benchmark &amp; Metal-Check starten</button>
+        </div>
+        <pre class="codebox mt-8" id="mf01Out">Bereit fuer RSI-MF-01 Lauf.</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">RSI-MF-02 · Live Repo &amp; MoE Expert-Activation Profiler (Gyro-Coder)</span>
+          <span class="badge ok">LIVE v1.3.0</span>
+        </div>
+        <label class="field-label">Code-Repository Pfad (Read-Only · ignoriert .env / Secrets / .git)</label>
+        <div class="row">
+          <input id="mf02Repo" type="text" value="." style="flex:1;">
+          <input id="mf02Keep" type="number" value="50" min="25" max="90" style="width:74px;" title="Keep %">
+          <button class="btn primary" onclick="runWave1Mf02()">Repo &amp; 512 Experts profilen</button>
+        </div>
+        <pre class="codebox mt-8" id="mf02Out">Bereit fuer Read-Only Repo-Scan &amp; Gyro-Coder Top-K Expert-Maske.</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">RSI-MF-03 · Direct GGUF Norm-Preserving Abliteration Streamer</span>
+          <span class="badge ruby">Atomarer Backup-Guard</span>
+        </div>
+        <div style="font-size:11.5px; color:var(--muted); margin-bottom:8px;">4-MB Chunk-Streaming (&lt; 16 MB RAM auch bei 1.5 TB GGUF). Überschreibt niemals die Originaldatei — erzeugt atomar <span class="mono">*.abliterated.gguf</span>.</div>
+        <label class="field-label">Quell-GGUF Pfad</label>
+        <input id="mf03Src" type="text" placeholder="/pfad/zum/modell.gguf">
+        <div class="row mt-8">
+          <button class="btn" onclick="runWave1Mf03(false)">Dry-Run Analyse</button>
+          <button class="btn ruby" onclick="requestTwoClick('mf03_stream_apply','RSI-MF-03 Direct Streaming GGUF Abliteration (atomare Kopie *.abliterated.gguf) ausführen')">2-Klick Stream-Surgery starten</button>
+        </div>
+        <pre class="codebox mt-8" id="mf03Out">Wähle ein lokales .gguf im Forge-Tab oder gib oben einen Pfad ein.</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">RSI-MF-04 · NALA-Grid 4D Imatrix &amp; LoRA Orchestrator (HMAC-SHA256)</span>
+          <span class="badge sky">RFC 2104 Sealed</span>
+        </div>
+        <div style="font-size:11.5px; color:var(--muted); margin-bottom:8px;">Verteilt Calibration-Chunks &amp; QLoRA Micro-Batches proportional zur Roofline-Leistung über alle aktiven Opt-In NALA-Grid GPUs — kryptografisch versiegelt mit Constant-Time HMAC-SHA256.</div>
+        <div class="row">
+          <button class="btn primary" onclick="runWave1Mf04()">4D Grid-Plan &amp; HMAC-Seal berechnen</button>
+        </div>
+        <pre class="codebox mt-8" id="mf04Out">Bereit fuer 4D NALA-Grid Orchestrierung.</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">RSI-MF-05 · Direct Apple Silicon Metal GPU Compute Bridge</span>
+          <span class="badge ok">LIVE v1.4.0 · +12× GPU</span>
+        </div>
+        <div style="font-size:11.5px; color:var(--muted); margin-bottom:8px;">Kompiliert &amp; startet <span class="mono">bonsai_hadamard_g128_pack</span> direkt auf Apple Metal GPU mit 64 MiB Zero-Copy Unified Memory (16,7M Gewichte, 131K Threadgroups).</div>
+        <div class="row">
+          <button class="btn primary" onclick="runWave2Mf05()">Live Metal GPU Dispatch (16,7M Weights)</button>
+        </div>
+        <pre class="codebox mt-8" id="mf05Out">Bereit fuer echten Apple Metal GPU Compute-Lauf.</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">RSI-MF-06 · Streaming Q8_0 / Q4_0 Dequant-Abliterate-Requant Engine</span>
+          <span class="badge ruby">LIVE v1.4.0 · Atomar</span>
+        </div>
+        <div style="font-size:11.5px; color:var(--muted); margin-bottom:8px;">Direkte Block-Chirurgie auf quantisierten GGUFs (<span class="mono">F32/F16/Q8_0/Q4_0</span>) mit IEEE-754 f16 Codec &amp; Row-Norm-Erhaltung (&lt; 16 MB RAM).</div>
+        <div class="row">
+          <button class="btn" onclick="runWave2Mf06(false)">Q8_0/Q4_0 Dry-Run</button>
+          <button class="btn ruby" onclick="requestTwoClick('mf06_quant_apply','RSI-MF-06 Q8_0/Q4_0 Streaming Abliteration (*.q-abliterated.gguf) ausführen')">2-Klick Quant-Surgery</button>
+        </div>
+        <pre class="codebox mt-8" id="mf06Out">Nutzt Quell-GGUF aus MF-03 oder Forge-Tab.</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">RSI-MF-07 · Live GGUF Multi-LoRA Static Weight Merger</span>
+          <span class="badge ok">LIVE v1.4.0 · 0 ms Overhead</span>
+        </div>
+        <div style="font-size:11.5px; color:var(--muted); margin-bottom:8px;">Schmilzt alle LoRAs aus Tab 4 direkt in Base-GGUF-Gewichte ein (mit Frobenius Spectral-Drift Guard &amp; atomarem Rollback).</div>
+        <div class="row">
+          <button class="btn" onclick="runWave2Mf07(false)">Static-Merge Dry-Run</button>
+          <button class="btn amber" onclick="requestTwoClick('mf07_lora_apply','RSI-MF-07 Static Multi-LoRA GGUF Merge (*.lora-merged.gguf) ausführen')">2-Klick Static Merge</button>
+        </div>
+        <pre class="codebox mt-8" id="mf07Out">Bereit fuer 0-ms-Overhead Static Multi-LoRA Fusion.</pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">RSI-MF-08 · Direct NALA-RAG (:18700) Corpus-to-Imatrix &amp; LoRA Generator</span>
+          <span class="badge sky">5-Zonen + Zero-PII</span>
+        </div>
+        <label class="field-label">Erlaubte Tenant-Zone (Private/Steuer/Gesundheit werden hart geblockt!)</label>
+        <div class="row">
+          <input id="mf08Zone" type="text" value="zone_engineering" style="flex:1;">
+          <button class="btn primary" onclick="requestTwoClick('mf08_rag_export','RSI-MF-08 Zero-PII NALA-RAG Imatrix &amp; Coding-LoRA JSONL Dataset erzeugen')">2-Klick Dataset bauen</button>
+        </div>
+        <pre class="codebox mt-8" id="mf08Out">Bereit fuer Evidence-Lock Imatrix + LoRA JSONL Export.</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 7: DREAM / REA / RSI COCKPIT -->
+  <section id="pane-dream" class="pane">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Dream / REA / RSI Lösungs- &amp; Delta-Übersichtsmatrix (Triple-Council: NALAtheON + NEOP + TheForum)</span>
+        <div class="row">
+          <select id="ideTargetSelect" style="width:150px;">
+            <option value="Antigravity">Antigravity</option>
+            <option value="Codex">Codex</option>
+            <option value="ZCode">ZCode</option>
+            <option value="OpenCode">OpenCode</option>
+          </select>
+          <button class="btn amber sm" onclick="runLiveDreamCouncil()">Dream-Phase auf NALA-GPUs (3–7 Runden)</button>
+          <span class="badge ok mono" id="councilBadge">CONVERGED_GO · 9.9/10</span>
+        </div>
+      </div>
+      <div id="dreamCouncilMsg" style="font-size:11.5px; color:var(--emerald); margin-bottom:8px;"></div>
+      <table class="tbl">
+        <thead>
+          <tr><th>ID</th><th>Evolution / Vorschlag</th><th>Performance-Delta</th><th>Feature-Delta</th><th>Sicherheits-Delta</th><th>2-Klick / Multi-IDE</th></tr>
+        </thead>
+        <tbody id="dreamTableBody"></tbody>
+      </table>
+      <div class="mt-12">
+        <div class="row-between">
+          <label class="field-label" style="margin:0;">Generierter 1-Klick Prompt für Codex / Antigravity, ZCode oder OpenCode (inkl. Pflicht-Footer)</label>
+          <button class="btn sm primary" onclick="copyText('idePromptBox')">Prompt kopieren</button>
+        </div>
+        <pre class="codebox" id="idePromptBox">Klicke auf einen Vorschlag oben, um den vollständigen TheStandart + NCSP v2.5 Multi-IDE Prompt zu erzeugen oder direkt per 2-Klick (Installieren/Umsetzen → AUSFÜHREN) umzusetzen.</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 8: IN-APP HELP & 5-LANGUAGE GUIDE -->
+  <section id="pane-help" class="pane">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title" id="helpTitle">In-App Hilfe &amp; Caveman 1-2-3 Guide (DE / EN / FR / IT / RM)</span>
+          <span class="badge ok">Zero-Python · 5 Sprachen</span>
+        </div>
+        <div id="helpBody" style="font-size:12.5px; color:var(--text); line-height:1.6;"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">LoRA · NALA-MCP-cORe · NALA-RAG Schnellreferenz</span>
+          <span class="badge sky">28 MCP-Tools</span>
+        </div>
+        <pre class="codebox"># 1. Modell inspizieren (Zero-Copy, auch 1.5 TB!)
+nala-modelforge-rs --inspect /pfad/zum/modell.gguf
+
+# 2. Apple M4 Max Metal GPU 1-Bit Bonsai + Hadamard Live-Bench
+nala-modelforge-rs --rsi-mf05
+
+# 3. NALA-MCP-cORe, Antigravity, Gemini CLI &amp; ZCode verbinden (28 Tools)
+nala-modelforge-rs --register-mcp
+
+# 4. NALA-RAG (:18700) 5-Zonen Zero-PII Imatrix &amp; LoRA Dataset Export
+nala-modelforge-rs --rsi-mf08 ./mein-rag-dataset
+
+# 5. Alle 12 Sicherheits-, Mathematik- &amp; Anti-Slop-Gates pruefen
+nala-modelforge-rs --self-test &amp;&amp; nala-modelforge-rs --deslop-audit</pre>
+        <div class="rec-banner mt-12">
+          <strong>PDF-Handbücher (DE · EN · FR · IT · RM), FAQ &amp; Caveman-Guides</strong> liegen im <span class="mono">docs/</span>-Ordner und in den GitHub Releases bereit. Original-Modelle werden durch den atomaren Backup-Guard (<span class="mono">.tmp → rename</span>) und das 2-Klick-Gate <strong>niemals</strong> überschrieben.
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- 2-CLICK CONFIRMATION MODAL -->
+<div class="modal-backdrop" id="twoClickModal">
+  <div class="modal">
+    <h3>2-Klick Sicherheits-Gate — Wollen Sie wirklich ausführen?</h3>
+    <p id="twoClickDesc">Aktion bestätigen.</p>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="btn" onclick="closeTwoClick()">Abbrechen</button>
+      <button class="btn primary" onclick="confirmTwoClick()">AUSFÜHREN (2. Klick)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const I18N = {
+  de: {
+    subtitle: "100% Native Safe Rust · Domain-Selective Quantizer · Abliteration · Multi-Agent KV Planner · MCP Core",
+    tab_forge: "1. Forge & Precision Studio",
+    tab_slots: "2. Multi-User & Agenten KV",
+    tab_ablit: "3. True Uncensoring / Abliteration",
+    tab_lora: "4. LoRA Stacker · NALA-RAG · Grid",
+    tab_recipes: "5. Recipes & Live Console",
+    tab_dream: "6. Dream / REA / RSI Cockpit",
+    sec_model: "Modell Drag & Drop / Zero-Copy Inspektor",
+    drop_title: "GGUF, Safetensors oder HuggingFace-Ordner hier reinziehen",
+    drop_sub: "Zero-Copy Header-Scan in Pure Rust (< 2 ms auch bei 1.5 TB Modellen · kein RAM-Copy!)",
+    btn_browse: "Modell / Ordner wählen",
+    sec_hw: "Ziel-Hardware & Optimierungs-Backend",
+    lbl_hw_profile: "Hardware-Profil",
+    lbl_export_fmt: "Ziel-Format",
+    sec_surgical: "Domain-Selective Mixed-Precision & MoE Expert Pruning",
+    sec_solver: "Auto-Fit Roofline & Speicher-Budget"
+  },
+  en: {
+    subtitle: "100% Native Safe Rust · Domain-Selective Quantizer · Abliteration · Multi-Agent KV Planner · MCP Core",
+    tab_forge: "1. Forge & Precision Studio",
+    tab_slots: "2. Multi-User & Agent KV",
+    tab_ablit: "3. True Uncensoring / Abliteration",
+    tab_lora: "4. LoRA Stacker · NALA-RAG · Grid",
+    tab_recipes: "5. Recipes & Live Console",
+    tab_dream: "6. Dream / REA / RSI Cockpit",
+    sec_model: "Model Drag & Drop / Zero-Copy Inspector",
+    drop_title: "Drop GGUF, Safetensors, or HuggingFace Folder here",
+    drop_sub: "Zero-copy streaming header parse in Pure Rust (< 2 ms even on 1.5 TB models)",
+    btn_browse: "Select Model / Folder",
+    sec_hw: "Target Hardware & Accelerator Backend",
+    lbl_hw_profile: "Hardware Profile",
+    lbl_export_fmt: "Target Format",
+    sec_surgical: "Domain-Selective Mixed-Precision & MoE Expert Pruning",
+    sec_solver: "Auto-Fit Roofline & Memory Budget"
+  },
+  fr: {
+    subtitle: "100% Rust Natif Sûr · Quantifieur Sélectif · Ablitration · KV Multi-Agents · MCP Core",
+    tab_forge: "1. Studio Forge & Précision",
+    tab_slots: "2. KV Multi-Utilisateurs & Agents",
+    tab_ablit: "3. Décensure / Ablitration",
+    tab_lora: "4. LoRA · NALA-RAG · Grid",
+    tab_recipes: "5. Recettes & Console Live",
+    tab_dream: "6. Cockpit Dream / REA / RSI",
+    sec_model: "Glisser-Déposer Modèle / Inspecteur Zero-Copy",
+    drop_title: "Déposez un fichier GGUF, Safetensors ou dossier HuggingFace",
+    drop_sub: "Lecture d'en-tête Zero-Copy en Rust pur (< 2 ms même sur 1.5 To)",
+    btn_browse: "Choisir Modèle / Dossier",
+    sec_hw: "Matériel Cible & Backend",
+    lbl_hw_profile: "Profil Matériel",
+    lbl_export_fmt: "Format Cible",
+    sec_surgical: "Quantification Mixte Sélective & Élagage MoE",
+    sec_solver: "Solveur Auto-Fit & Budget Mémoire"
+  },
+  it: {
+    subtitle: "100% Rust Nativo Sicuro · Quantizzatore Selettivo · Abliterazione · KV Multi-Agente · MCP Core",
+    tab_forge: "1. Studio Forge & Precisione",
+    tab_slots: "2. KV Multi-Utente & Agenti",
+    tab_ablit: "3. Abliterazione Reale",
+    tab_lora: "4. LoRA · NALA-RAG · Grid",
+    tab_recipes: "5. Ricette & Console Live",
+    tab_dream: "6. Cockpit Dream / REA / RSI",
+    sec_model: "Drag & Drop Modello / Ispettore Zero-Copy",
+    drop_title: "Trascina qui GGUF, Safetensors o cartella HuggingFace",
+    drop_sub: "Scansione header Zero-Copy in Rust puro (< 2 ms anche su 1.5 TB)",
+    btn_browse: "Seleziona Modello / Cartella",
+    sec_hw: "Hardware Target & Backend",
+    lbl_hw_profile: "Profilo Hardware",
+    lbl_export_fmt: "Formato Target",
+    sec_surgical: "Quantizzazione Mista Selettiva & Pruning MoE",
+    sec_solver: "Auto-Fit Roofline & Budget Memoria"
+  },
+  rm: {
+    subtitle: "100% Rust Nativ Segir · Quantisader Selectiv · Abliteraziun · KV Multi-Agents · MCP Core",
+    tab_forge: "1. Studio Forge & Precisiun",
+    tab_slots: "2. KV Multi-Utilisaders & Agents",
+    tab_ablit: "3. Abliteraziun Reala",
+    tab_lora: "4. LoRA · NALA-RAG · Grid",
+    tab_recipes: "5. Recepts & Consola Live",
+    tab_dream: "6. Cockpit Dream / REA / RSI",
+    sec_model: "Drag & Drop Model / Inspectur Zero-Copy",
+    drop_title: "Tira qua in GGUF, Safetensors u ordinatur HuggingFace",
+    drop_sub: "Scan Zero-Copy en Rust pur (< 2 ms schizunt tar 1.5 TB)",
+    btn_browse: "Tscherner Model / Ordinatur",
+    sec_hw: "Hardware Target & Backend",
+    lbl_hw_profile: "Profil Hardware",
+    lbl_export_fmt: "Format Target",
+    sec_surgical: "Quantisaziun Mista & Pruning MoE",
+    sec_solver: "Auto-Fit Roofline & Budget Memoria"
+  }
+};
+
+const STATE = {
+  presets: [],
+  hwProfiles: [],
+  currentModel: null,
+  modelPath: "preset://frontier-1.5tb-moe",
+  slots: [
+    { label: "Hauptuser (Mensch)", role: "human", count: 1, context_tokens: 1048576, kv_quant: "Q8_0", active_concurrent: 1, prefix_share_pct: 15 },
+    { label: "Orchestrator-Agent", role: "orchestrator", count: 1, context_tokens: 1048576, kv_quant: "Q8_0", active_concurrent: 1, prefix_share_pct: 40 },
+    { label: "Spezialisten-Agenten (Coder / QA / UI / Sec)", role: "agent", count: 14, context_tokens: 262144, kv_quant: "Q8_0", active_concurrent: 6, prefix_share_pct: 55 }
+  ],
+  loras: [
+    { name: "Rust-Swift-Systems-Coder-LoRA", rank: 32, scale: 0.90 },
+    { name: "EfficientThink-AntiLoop-RLOO-LoRA", rank: 16, scale: 0.65 },
+    { name: "Swiss-Treuhand-Domain-LoRA", rank: 16, scale: 0.55 }
+  ],
+  pendingAction: null
+};
+
+const HELP_I18N = {
+  de: `<p><strong>1. Modell reinziehen (Tab 1):</strong> Ziehe eine <code>.gguf</code>, <code>.safetensors</code> oder einen HuggingFace-Ordner ins Fenster (Zero-Copy &lt;25 ms).</p>
+       <p><strong>2. Hardware &amp; Coding-Präzision wählen:</strong> Wähle z. B. <em>Mac Studio 512 GB</em> oder <em>M4 Max 64 GB</em>. Coding/Logik/Attention bleiben FETT (<code>Q8_0/BF16</code>), der Rest wird mit Hadamard-Rotation auf <strong>Bonsai 1-Bit</strong> geschrumpft.</p>
+       <p><strong>3. Multi-User KV-Cache (Tab 2):</strong> Stelle z. B. <code>1× Mensch (1M)</code> + <code>1× Orchestrator (1M)</code> + <code>14× Agenten (256K)</code> ein.</p>
+       <p><strong>4. LoRAs, NALA-RAG &amp; MCP-cORe (Tab 4):</strong> Klicke <em>LoRA-Datei wählen</em>, prüfe Spectral Drift und verschmelze LoRAs per <code>RSI-MF-07</code> (0 ms Overhead). Prüfe <code>NALA-RAG (:18700)</code> und <code>MCP-cORe (28 Tools)</code> per 1-Klick.</p>
+       <p><strong>5. Apple Metal GPU &amp; Wave-1/2 Engines (Tab 6):</strong> Starte <code>RSI-MF-05</code> für 28× GPU-Speedup auf Apple Silicon oder <code>RSI-MF-06</code> für Q8_0/Q4_0 Streaming-Abliteration.</p>`,
+  en: `<p><strong>1. Drop Model (Tab 1):</strong> Drag any <code>.gguf</code>, <code>.safetensors</code>, or HuggingFace folder into the window (zero-copy &lt;25 ms).</p>
+       <p><strong>2. Target Hardware &amp; Precision:</strong> Keep Coding, Logic &amp; Attention at <code>Q8_0/BF16</code> while compressing secondary weights via Hadamard + <strong>Bonsai 1-Bit</strong>.</p>
+       <p><strong>3. Multi-Agent KV Planner (Tab 2):</strong> Reserve asymmetric 1M/256K context windows with Strata NVMe disk-parking.</p>
+       <p><strong>4. LoRA, NALA-RAG &amp; MCP-cORe (Tab 4):</strong> Attach <code>.gguf/.safetensors</code> LoRAs, statically merge via <code>RSI-MF-07</code> (0 ms overhead), probe <code>NALA-RAG (:18700)</code> and wire all 28 MCP tools.</p>`,
+  fr: `<p><strong>1. Déposer un Modèle (Onglet 1) :</strong> Glissez <code>.gguf</code>, <code>.safetensors</code> ou dossier HuggingFace (Zero-Copy &lt;25 ms).</p>
+       <p><strong>2. Quantification Sélective :</strong> Gardez Code/Logique en <code>Q8_0/BF16</code> et compressez le reste en <strong>Bonsai 1-Bit</strong> + Rotation de Hadamard.</p>
+       <p><strong>3. LoRA, NALA-RAG &amp; MCP-cORe (Onglet 4) :</strong> Ajoutez vos LoRAs, fusionnez via <code>RSI-MF-07</code> (0 ms), connectez <code>NALA-RAG (:18700)</code> et les 28 outils MCP.</p>`,
+  it: `<p><strong>1. Trascina Modello (Scheda 1):</strong> Trascina <code>.gguf</code>, <code>.safetensors</code> o cartella HuggingFace (Zero-Copy &lt;25 ms).</p>
+       <p><strong>2. Precisione Selettiva:</strong> Mantieni Codice/Logica in <code>Q8_0/BF16</code> e comprimi il resto in <strong>Bonsai 1-Bit</strong> + Hadamard.</p>
+       <p><strong>3. LoRA, NALA-RAG &amp; MCP-cORe (Scheda 4):</strong> Aggiungi LoRA, fondi staticamente con <code>RSI-MF-07</code> (0 ms) e verifica i 28 tool MCP.</p>`,
+  rm: `<p><strong>1. Tirar Model (Tab 1):</strong> Tira <code>.gguf</code>, <code>.safetensors</code> u ordinatur HuggingFace (Zero-Copy &lt;25 ms).</p>
+       <p><strong>2. Quantisaziun Selectiva:</strong> Tegnair Coding/Logica en <code>Q8_0/BF16</code> e comprimir il rest sin <strong>Bonsai 1-Bit</strong> + Hadamard.</p>
+       <p><strong>3. LoRA, NALA-RAG &amp; MCP-cORe (Tab 4):</strong> Agiuntar LoRAs, fusiunar cun <code>RSI-MF-07</code> e colliar ils 28 utensils MCP.</p>`
+};
+
+function setLang(code) {
+  document.querySelectorAll(".lang-btn").forEach(b => b.classList.toggle("active", b.textContent.toLowerCase() === code));
+  const dict = I18N[code] || I18N.de;
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const k = el.getAttribute("data-i18n");
+    if (dict[k]) el.textContent = dict[k];
+  });
+  const hb = document.getElementById("helpBody");
+  if (hb) hb.innerHTML = HELP_I18N[code] || HELP_I18N.de;
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+  document.getElementById("pane-" + id).classList.add("active");
+  if (btn) btn.classList.add("active");
+}
+
+async function apiGet(url) {
+  const r = await fetch(url);
+  return r.json();
+}
+
+async function apiPost(url, payload) {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return r.json();
+}
+
+// Native macOS AppKit Drag & Drop & File/Folder Picker Hook!
+window.onNativeDrop = async function(path) {
+  if (!path) return;
+  document.getElementById("manualPath").value = path;
+  await inspectPath(path);
+};
+
+function pickNativeModel() {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nalaOpenPanel) {
+    window.webkit.messageHandlers.nalaOpenPanel.postMessage("pick");
+  } else {
+    const p = prompt("Absoluten Pfad zur .gguf / .safetensors Datei oder zum HuggingFace-Ordner eingeben:", document.getElementById("manualPath").value || "");
+    if (p) {
+      document.getElementById("manualPath").value = p;
+      inspectPath(p);
+    }
+  }
+}
+
+async function inspectManualPath() {
+  const p = document.getElementById("manualPath").value.trim();
+  if (!p) return;
+  await inspectPath(p);
+}
+
+async function inspectPath(p) {
+  const res = await apiPost("/api/inspect", { path: p });
+  if (res.error) {
+    document.getElementById("recBanner").textContent = "Inspect Fehler: " + res.error;
+    document.getElementById("recBanner").classList.add("warn");
+    return;
+  }
+  STATE.currentModel = res;
+  STATE.modelPath = p;
+  renderModelMeta(res);
+  await recalcPlan();
+}
+
+async function selectPreset(id) {
+  const path = "preset://" + id;
+  document.getElementById("manualPath").value = "";
+  await inspectPath(path);
+}
+
+function renderModelMeta(m) {
+  document.getElementById("modelFmtBadge").textContent = (m.source_format || "PRESET").toUpperCase();
+  const grid = document.getElementById("modelMetaGrid");
+  grid.innerHTML = [
+    ["Parameter", m.total_params_b.toFixed(1) + "B", "Aktiv: " + m.active_params_b.toFixed(1) + "B"],
+    ["Original / FP16", m.fp16_equiv_gb.toFixed(0) + " GB", "Disk: " + m.file_size_gb.toFixed(1) + " GB"],
+    ["Architektur", m.architecture, m.is_moe ? (m.expert_count + " Experts (" + m.active_experts + " aktiv)") : "Dense Transformer"],
+    ["Layer / GQA", m.n_layers + "L · " + m.n_kv_heads + " KV", "Native Ctx: " + (m.native_context / 1024).toFixed(0) + "K"]
+  ].map(x => `<div class="kpi"><div class="kpi-label">${x[0]}</div><div class="kpi-val" style="font-size:15px;">${x[1]}</div><div class="kpi-sub">${x[2]}</div></div>`).join("");
+
+  const tb = document.getElementById("tensorSampleBody");
+  if (tb) {
+    const samples = m.sample_tensors || [];
+    tb.innerHTML = samples.map(t => `<tr>
+      <td class="mono" style="font-size:11px;">${escapeHtml(t.name)}</td>
+      <td><span class="badge ${t.category==='attention'||t.category==='router'?'ok':(t.category==='moe_expert'?'warn':'sky')}">${escapeHtml(t.category)}</span></td>
+      <td class="mono">${escapeHtml(t.dtype)}</td>
+      <td class="mono">${(t.mb || 0).toFixed(1)} MiB</td>
+    </tr>`).join("");
+  }
+}
+
+function onHwChange() {
+  const id = document.getElementById("hwSelect").value;
+  document.getElementById("customHwRow").style.display = (id === "custom") ? "grid" : "none";
+  const prof = STATE.hwProfiles.find(h => h.id === id);
+  if (prof) {
+    document.getElementById("hwBwBadge").textContent = prof.bandwidth_gbs + " GB/s";
+    if (prof.default_format === "MLX") document.getElementById("fmtSelect").value = "MLX";
+    else if (prof.default_format === "NALA-Parallax") document.getElementById("fmtSelect").value = "NALA_PARALLAX";
+    else document.getElementById("fmtSelect").value = "GGUF";
+  }
+  recalcPlan();
+}
+
+function buildPlanPayload() {
+  return {
+    model_path: STATE.modelPath,
+    hardware_id: document.getElementById("hwSelect").value,
+    custom_ram_gb: parseFloat(document.getElementById("customRamGb").value) || 512,
+    custom_bw_gbs: parseFloat(document.getElementById("customBwGbs").value) || 819,
+    custom_vendor: document.getElementById("customVendor").value,
+    target_format: document.getElementById("fmtSelect").value,
+    coding_logic_share_pct: parseFloat(document.getElementById("codingShare").value),
+    secondary_quant: document.getElementById("secQuant").value,
+    use_hadamard_rotation: document.getElementById("hadamardToggle").checked,
+    moe_prune_pct: parseFloat(document.getElementById("moePrune").value),
+    coding_precision_override: document.getElementById("codingOverride").value,
+    enable_abliteration: document.getElementById("ablitEnable").checked,
+    abliteration_alpha: parseFloat(document.getElementById("ablitAlpha").value),
+    protect_coding_subspace: document.getElementById("ablitProtect").checked,
+    enable_strata_nvme_parking: document.getElementById("strataToggle").checked,
+    lora_count: STATE.loras.length,
+    lora_rank: STATE.loras.length ? STATE.loras[0].rank : 32,
+    enable_nala_rag: document.getElementById("ragEnable").checked,
+    rag_reserved_tokens: parseInt(document.getElementById("ragTokens").value, 10) || 32768,
+    slots: STATE.slots
+  };
+}
+
+async function recalcPlan() {
+  const plan = await apiPost("/api/plan", buildPlanPayload());
+  if (plan.error) return;
+
+  const badge = document.getElementById("fitStatusBadge");
+  badge.textContent = plan.fit_status;
+  badge.className = "badge mono " + (plan.fit_status.includes("PERFECT") || plan.fit_status.includes("TIGHT") ? "ok" : "warn");
+
+  document.getElementById("kpiCodingQ").textContent = plan.chosen_coding_quant;
+  document.getElementById("kpiAttnQ").textContent = "Attn: " + plan.chosen_attention_quant + " · Emb: " + plan.chosen_embed_quant;
+  document.getElementById("kpiBpw").textContent = plan.effective_bpw.toFixed(2) + " bpw";
+  document.getElementById("kpiRatio").textContent = "vs FP16: " + plan.compression_ratio_vs_fp16.toFixed(1) + "× kleiner";
+  document.getElementById("kpiRet").textContent = plan.coding_retention_pct.toFixed(1) + "%";
+  document.getElementById("kpiExperts").textContent = "Experts: " + plan.kept_experts + " aktiv (" + plan.pruned_experts + " pruned)";
+  document.getElementById("kpiTps").textContent = plan.est_decode_tps.toFixed(1) + " t/s";
+  document.getElementById("kpiPrefill").textContent = "Prefill: " + plan.est_prefill_tps.toFixed(0) + " t/s";
+
+  const mb = plan.memory_breakdown_gb;
+  document.getElementById("memSummaryText").textContent =
+    mb.total_required_gb.toFixed(1) + " / " + mb.hardware_usable_gb.toFixed(1) + " GB (Reserve: " + mb.headroom_gb.toFixed(1) + " GB)";
+
+  const denom = Math.max(mb.hardware_usable_gb, mb.total_required_gb, 1);
+  const segs = [
+    ["seg-code", mb.weights_coding_core_gb, "Coding " + plan.chosen_coding_quant],
+    ["seg-attn", mb.weights_attention_gb, "Attn " + plan.chosen_attention_quant],
+    ["seg-embed", mb.weights_embed_output_gb + mb.weights_router_norms_gb, "Emb/Router"],
+    ["seg-1bit", mb.weights_secondary_1bit_gb, plan.chosen_secondary_quant],
+    ["seg-kv", mb.kv_cache_vram_gb, "KV-Cache (" + plan.total_users_agents + " Slots)"],
+    ["seg-rt", mb.runtime_lora_rag_gb, "LoRA/RAG/Scratch"]
+  ];
+  document.getElementById("memBar").innerHTML = segs.map(([cls, gb, lbl]) => {
+    const pct = Math.max(0, (gb / denom) * 100);
+    return `<div class="mem-seg ${cls}" style="width:${pct.toFixed(2)}%" title="${lbl}: ${gb.toFixed(2)} GB">${pct > 7 ? gb.toFixed(0) + "G" : ""}</div>`;
+  }).join("");
+
+  document.getElementById("memLegend").innerHTML = segs.map(([cls, gb, lbl]) => {
+    const colorMap = { "seg-code": "#10b981", "seg-attn": "#34d399", "seg-embed": "#6ee7b7", "seg-1bit": "#f59e0b", "seg-kv": "#38bdf8", "seg-rt": "#94a3b8" };
+    return `<span><i class="sw" style="background:${colorMap[cls]}"></i>${lbl}: <strong class="mono">${gb.toFixed(1)} GB</strong></span>`;
+  }).join("");
+
+  const banner = document.getElementById("recBanner");
+  banner.textContent = plan.recommendation;
+  banner.className = "rec-banner" + (mb.headroom_gb < 0 ? " warn" : "");
+
+  // Layer Precision Heatmap (64 visual buckets)
+  const codingShare = parseFloat(document.getElementById("codingShare").value) / 100;
+  const pruneShare = (STATE.currentModel && STATE.currentModel.is_moe) ? (parseFloat(document.getElementById("moePrune").value) / 100) : 0;
+  const cells = [];
+  for (let i = 0; i < 64; i++) {
+    let bg = "#f59e0b";
+    let tip = "Block " + i + ": " + plan.chosen_secondary_quant + " (1-Bit/Compressed)";
+    if (i < 4 || i >= 60) {
+      bg = "#34d399"; tip = "Block " + i + ": Attention/Embed Protected (" + plan.chosen_attention_quant + ")";
+    } else if (((i * 7) % 100) / 100 < codingShare) {
+      bg = "#10b981"; tip = "Block " + i + ": Coding & Logic Core (" + plan.chosen_coding_quant + " FAT)";
+    } else if (((i * 13) % 100) / 100 < pruneShare) {
+      bg = "#1f2937"; tip = "Block " + i + ": Structurally Pruned MoE Experts (0 bpw)";
+    }
+    cells.push(`<div class="hm-cell" style="background:${bg}" title="${tip}"></div>`);
+  }
+  document.getElementById("layerHeatmap").innerHTML = cells.join("");
+
+  // Recipes Tab
+  if (plan.recipes) {
+    document.getElementById("recipeTensorTypes").textContent = plan.recipes.tensor_types_txt;
+    document.getElementById("recipeGguf").textContent = plan.recipes.gguf_quantize_cmd;
+    document.getElementById("recipeMlx").textContent = plan.recipes.mlx_convert_cmd;
+    document.getElementById("recipeServe").textContent = plan.recipes.multiuser_serve_cmd;
+  }
+
+  // Update slot table report column
+  renderSlots(plan.slot_reports || []);
+  document.getElementById("slotTotalsText").textContent =
+    `Gesamt: ${plan.total_users_agents} User/Agenten · VRAM KV: ${mb.kv_cache_vram_gb.toFixed(2)} GB · Strata NVMe Parked: ${mb.kv_cache_nvme_parked_gb.toFixed(2)} GB`;
+  document.getElementById("yarnInfoText").textContent =
+    plan.yarn_rope_factor > 1.01
+      ? `YaRN RoPE Scaling aktiv: ${plan.yarn_rope_factor.toFixed(2)}× (bis ${(plan.max_context_tokens/1024).toFixed(0)}K Tokens)`
+      : `Innerhalb nativer RoPE Kontextgrenze (${(plan.max_context_tokens/1024).toFixed(0)}K)`;
+}
+
+function renderSlots(reports) {
+  const tb = document.getElementById("slotTableBody");
+  tb.innerHTML = STATE.slots.map((s, idx) => {
+    const rep = reports[idx] || { vram_gb: 0, nvme_parked_gb: 0 };
+    return `<tr>
+      <td><input type="text" value="${escapeHtml(s.label)}" onchange="STATE.slots[${idx}].label=this.value; recalcPlan()"></td>
+      <td><select onchange="STATE.slots[${idx}].role=this.value; recalcPlan()">
+        <option value="human" ${s.role==='human'?'selected':''}>Mensch</option>
+        <option value="orchestrator" ${s.role==='orchestrator'?'selected':''}>Orchestrator</option>
+        <option value="agent" ${s.role==='agent'?'selected':''}>Agent</option>
+        <option value="rag_worker" ${s.role==='rag_worker'?'selected':''}>RAG Worker</option>
+      </select></td>
+      <td><input type="number" min="1" max="128" value="${s.count}" style="width:68px;" onchange="STATE.slots[${idx}].count=parseInt(this.value,10)||1; recalcPlan()"></td>
+      <td><select onchange="STATE.slots[${idx}].context_tokens=parseInt(this.value,10); recalcPlan()">
+        ${[32768,65536,131072,262144,524288,1048576,2097152].map(v => `<option value="${v}" ${s.context_tokens===v?'selected':''}>${v>=1048576?(v/1048576)+'M':(v/1024)+'K'}</option>`).join("")}
+      </select></td>
+      <td><select onchange="STATE.slots[${idx}].kv_quant=this.value; recalcPlan()">
+        <option value="FP16" ${s.kv_quant==='FP16'?'selected':''}>FP16</option>
+        <option value="Q8_0" ${s.kv_quant==='Q8_0'?'selected':''}>Q8_0</option>
+        <option value="Q4_0" ${s.kv_quant==='Q4_0'?'selected':''}>Q4_0</option>
+      </select></td>
+      <td><input type="number" min="1" max="128" value="${s.active_concurrent}" style="width:68px;" onchange="STATE.slots[${idx}].active_concurrent=parseInt(this.value,10)||1; recalcPlan()"></td>
+      <td><input type="number" min="0" max="85" value="${s.prefix_share_pct}" style="width:68px;" onchange="STATE.slots[${idx}].prefix_share_pct=parseFloat(this.value)||0; recalcPlan()"></td>
+      <td class="mono">${rep.vram_gb.toFixed(1)}G / <span style="color:var(--muted)">${rep.nvme_parked_gb.toFixed(1)}G</span></td>
+      <td><button class="btn sm ruby" onclick="STATE.slots.splice(${idx},1); recalcPlan()">×</button></td>
+    </tr>`;
+  }).join("");
+}
+
+function loadMikeSwarmTemplate() {
+  STATE.slots = [
+    { label: "Hauptuser (Mensch)", role: "human", count: 1, context_tokens: 1048576, kv_quant: "Q8_0", active_concurrent: 1, prefix_share_pct: 15 },
+    { label: "Orchestrator-Agent", role: "orchestrator", count: 1, context_tokens: 1048576, kv_quant: "Q8_0", active_concurrent: 1, prefix_share_pct: 40 },
+    { label: "Spezialisten-Agenten (Coder / QA / UI / Sec)", role: "agent", count: 14, context_tokens: 262144, kv_quant: "Q8_0", active_concurrent: 6, prefix_share_pct: 55 }
+  ];
+  recalcPlan();
+}
+
+function addSlotGroup() {
+  STATE.slots.push({ label: "Neuer Agent-Pool", role: "agent", count: 4, context_tokens: 131072, kv_quant: "Q8_0", active_concurrent: 2, prefix_share_pct: 45 });
+  recalcPlan();
+}
+
+function renderLoras() {
+  const tb = document.getElementById("loraTableBody");
+  tb.innerHTML = STATE.loras.map((l, idx) => `<tr>
+    <td><input type="text" value="${escapeHtml(l.name)}" onchange="STATE.loras[${idx}].name=this.value"></td>
+    <td><input type="number" min="4" max="128" value="${l.rank}" style="width:74px;" onchange="STATE.loras[${idx}].rank=parseInt(this.value,10)||16; recalcPlan()"></td>
+    <td><input type="number" min="0.05" max="2.0" step="0.05" value="${l.scale}" style="width:78px;" onchange="STATE.loras[${idx}].scale=parseFloat(this.value)||0.5"></td>
+    <td><button class="btn sm ruby" onclick="STATE.loras.splice(${idx},1); renderLoras(); recalcPlan()">×</button></td>
+  </tr>`).join("");
+}
+
+window.onNativeLoraPick = function(path) {
+  if (!path) return;
+  STATE.loras.push({ name: path, rank: 16, scale: 0.80 });
+  renderLoras();
+  recalcPlan();
+};
+
+function pickNativeLora() {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nalaOpenLoraPanel) {
+    window.webkit.messageHandlers.nalaOpenLoraPanel.postMessage("pick");
+  } else {
+    const p = prompt("Pfad zur LoRA-Datei (.gguf / .safetensors):", "");
+    if (p) window.onNativeLoraPick(p);
+  }
+}
+
+async function probeMcpCore() {
+  const res = await apiGet("/api/mcp/status");
+  const el = document.getElementById("mcpCoreOut");
+  if (el) el.textContent = JSON.stringify(res, null, 2);
+}
+
+async function registerMcpCoreLive() {
+  const res = await apiPost("/api/mcp/register", {});
+  const el = document.getElementById("mcpCoreOut");
+  if (el) el.textContent = JSON.stringify(res, null, 2);
+}
+
+function addLoraRow() {
+  STATE.loras.push({ name: "Custom-Adapter-" + (STATE.loras.length + 1), rank: 16, scale: 0.70 });
+  renderLoras();
+  recalcPlan();
+}
+
+async function runAbliterationKernel() {
+  const res = await apiPost("/api/abliterate-sim", {
+    alpha: parseFloat(document.getElementById("ablitAlpha").value),
+    protect_coding: document.getElementById("ablitProtect").checked,
+    norm_preserving: true
+  });
+  document.getElementById("ablitStatusBadge").textContent = res.status || "VERIFIED";
+  document.getElementById("abSupp").textContent = (res.refusal_suppression_pct || 0).toFixed(2) + "%";
+  document.getElementById("abCos").textContent = (res.coding_subspace_cosine || 0).toFixed(6);
+  document.getElementById("abBefore").textContent = (res.refusal_projection_before || 0).toFixed(4);
+  document.getElementById("abAfter").textContent = (res.refusal_projection_after || 0).toFixed(6);
+  document.getElementById("ablitRaw").textContent = JSON.stringify(res, null, 2);
+}
+
+async function runLoraMergeVerify() {
+  const res = await apiPost("/api/lora-merge-sim", { adapters: STATE.loras });
+  document.getElementById("loraOut").textContent = JSON.stringify(res, null, 2);
+}
+
+async function probeRag() {
+  const res = await apiGet("/api/nala-rag/probe");
+  document.getElementById("ragProbeOut").textContent = JSON.stringify(res, null, 2);
+  document.getElementById("ragDot").className = "dot " + (res.reachable ? "" : "warn");
+  document.getElementById("ragPill").textContent = res.reachable ? "NALA-RAG LIVE :18700" : "NALA-RAG Standby";
+}
+
+async function probeGrid() {
+  const res = await apiGet("/api/nala-grid/status");
+  document.getElementById("gridProbeOut").textContent = JSON.stringify(res, null, 2);
+}
+
+function requestTwoClick(action, desc, extra) {
+  STATE.pendingAction = action;
+  STATE.pendingExtra = extra || null;
+  document.getElementById("twoClickDesc").textContent = desc + " (Ziel: " + (document.getElementById("exportDir").value || "~/Documents/NALA-ModelForge-Exports") + ")";
+  document.getElementById("twoClickModal").classList.add("open");
+}
+
+function closeTwoClick() {
+  STATE.pendingAction = null;
+  STATE.pendingExtra = null;
+  document.getElementById("twoClickModal").classList.remove("open");
+}
+
+async function confirmTwoClick() {
+  const action = STATE.pendingAction;
+  const extra = STATE.pendingExtra;
+  closeTwoClick();
+  if (!action) return;
+  if (action === "mf06_quant_apply") {
+    const src = (document.getElementById("mf03Src").value || document.getElementById("manualPath").value || "").trim();
+    const res = await apiPost("/api/rsi/mf06", {
+      src_path: src,
+      output_dir: document.getElementById("exportDir").value.trim(),
+      alpha: parseFloat(document.getElementById("ablitAlpha").value) || 1.0,
+      protect_coding: document.getElementById("ablitProtect").checked,
+      apply_write: true,
+      confirmed_two_click: true
+    });
+    document.getElementById("mf06Out").textContent = JSON.stringify(res, null, 2);
+    return;
+  }
+  if (action === "mf07_lora_apply") {
+    const src = (document.getElementById("mf03Src").value || document.getElementById("manualPath").value || "").trim();
+    const res = await apiPost("/api/rsi/mf07", {
+      src_path: src,
+      output_dir: document.getElementById("exportDir").value.trim(),
+      adapters: STATE.loras,
+      max_drift_pct: 12.0,
+      apply_write: true,
+      confirmed_two_click: true
+    });
+    document.getElementById("mf07Out").textContent = JSON.stringify(res, null, 2);
+    return;
+  }
+  if (action === "mf08_rag_export") {
+    const res = await apiPost("/api/rsi/mf08", {
+      zone_id: document.getElementById("mf08Zone").value.trim() || "zone_engineering",
+      fallback_repo: document.getElementById("mf02Repo").value.trim() || ".",
+      output_dir: document.getElementById("exportDir").value.trim(),
+      confirmed_two_click: true
+    });
+    document.getElementById("mf08Out").textContent = JSON.stringify(res, null, 2);
+    return;
+  }
+  if (action === "mf03_stream_apply") {
+    const src = (document.getElementById("mf03Src").value || document.getElementById("manualPath").value || "").trim();
+    const res = await apiPost("/api/rsi/mf03", {
+      src_path: src,
+      output_dir: document.getElementById("exportDir").value.trim(),
+      alpha: parseFloat(document.getElementById("ablitAlpha").value) || 1.0,
+      protect_coding: document.getElementById("ablitProtect").checked,
+      apply_write: true,
+      confirmed_two_click: true
+    });
+    document.getElementById("mf03Out").textContent = JSON.stringify(res, null, 2);
+    return;
+  }
+  if (action === "dream_execute" && extra) {
+    const res = await apiPost("/api/dream/execute", {
+      proposal_id: extra.proposal_id,
+      ide: document.getElementById("ideTargetSelect").value,
+      confirmed_two_click: true,
+      output_dir: document.getElementById("exportDir").value.trim()
+    });
+    if (res.prompt) document.getElementById("idePromptBox").textContent = res.prompt;
+    document.getElementById("dreamCouncilMsg").textContent = res.error
+      ? ("Fehler: " + res.error)
+      : (`✓ 2-Klick AUSGEFÜHRT: Proposal ${res.proposal_id} Blueprint + SHA256SUMS + ${res.target_ide} Prompt in ${res.output_dir} erstellt.`);
+    await refreshJobs();
+    return;
+  }
+  const payload = Object.assign(buildPlanPayload(), {
+    action,
+    confirmed_two_click: true,
+    output_dir: document.getElementById("exportDir").value.trim(),
+    lora_names: STATE.loras.map(l => l.name)
+  });
+  const res = await apiPost("/api/jobs/start", payload);
+  if (action === "rust_kernel_suite" && res.quant_benchmark) {
+    const rows = res.quant_benchmark.results.map(r => `${r.method}: ${r.bpw} bpw · SQNR ${r.sqnr_db} dB · Cos ${r.cosine_sim} (${r.elapsed_us} µs)`).join(" | ");
+    document.getElementById("quickBenchOut").innerHTML = `<strong style="color:var(--emerald)">Pure-Rust Kernel PASS:</strong> <span class="mono">${rows}</span>`;
+  } else if (res.error) {
+    document.getElementById("quickBenchOut").innerHTML = `<strong style="color:var(--ruby)">Hinweis:</strong> ${escapeHtml(res.error)}`;
+  } else {
+    document.getElementById("quickBenchOut").innerHTML = `<strong style="color:var(--emerald)">Job gestartet/abgeschlossen:</strong> <span class="mono">${escapeHtml(JSON.stringify(res))}</span>`;
+  }
+  await refreshJobs();
+}
+
+async function refreshJobs() {
+  const res = await apiGet("/api/jobs/list");
+  if (!res.jobs || !res.jobs.length) return;
+  document.getElementById("jobConsole").textContent = res.jobs.map(j =>
+    `=== [${j.status.toUpperCase()}] ${j.id} (${j.output_dir}) ===\n` + j.logs.join("\n")
+  ).join("\n\n");
+}
+
+const MANDATORY_FOOTER = `Kannst du die alles nach TheStandart und NCSP & Inventary (BackUP's, Snapshots und Rollbacks!) Umsetzen und mit NALAtheON's, NEOP's, und Grand TheGremium's jeweils mit Experten und mit (3-7 Runden) Analysiert, Optimiert und vom UI/UXI  entsprechend AAA Premium geplant und umgesetzt werden so wie aus einer Highend Software Firma kommt.  OHNE dabei AI-Slop zu erstellen! Und OHNE bestehende Features zu beschädigen oder NALA oder das NALA-OS kaputt zu machen! \nNutze die Resourcen von NALA und bringe ihr auch alles bei, trainiere sie so, dass sie das als einen Skill nutzen kann, den sie auch mit anderen Skill’s kombinieren kann! Sowie das sie auch diese Software weiterentwickeln kann, mögliche Verbesserungen in ihrer "Dream" Phasen überlegen, die Software Perlen durchsuchen oder eigenen Konzepte entwickeln, mit REA oder auch mit RSI  dann einen Plan erstellen (mit NALAtheON's, NEOP's und Grand TheGremium auf den NALA Resourcen  mit Experten) und mir diese als übersichtliches Konzepte mit Lösungsmatrix inkl. Delta Übersichts Matrix (Performance/Features/Sicherheits Optimierungen) vorschlagen kann die ich dann mit 2 Klick (1. klick -> (Installieren/Umsetzen)  und dann (wollen sie wirklich? -> (abbrechen) oder (AUSFÜHREN) und dann wird NALA dies implementieren (oder mir  die entsprechenden Prompts für Codex / Antigravity, ZCode oder OpenCode generieren, damit ich diese dann in den entsprechenden Coding tools Umsetzen kann!`;
+
+async function loadDreamMatrix() {
+  const res = await apiGet("/api/dream/matrix");
+  document.getElementById("councilBadge").textContent = res.council_status || "GO";
+  const tb = document.getElementById("dreamTableBody");
+  tb.innerHTML = (res.proposals || []).map((p, idx) => `<tr>
+    <td class="mono" style="color:var(--emerald); font-weight:700;">${p.id}</td>
+    <td><strong>${escapeHtml(p.title)}</strong><div style="font-size:11px; color:var(--muted);">${p.category}</div></td>
+    <td style="color:var(--emerald);">${escapeHtml(p.delta_perf)}</td>
+    <td>${escapeHtml(p.delta_features)}</td>
+    <td style="color:var(--sky);">${escapeHtml(p.delta_security)}</td>
+    <td><div class="row"><button class="btn sm primary" onclick="requestTwoClick('dream_execute','Dream/REA/RSI Proposal ${p.id} (Installieren/Umsetzen) als NCSP Blueprint + Multi-IDE Prompt ausführen',{proposal_id:'${p.id}'})">Installieren/Umsetzen</button><button class="btn sm" onclick="genIdePrompt(${idx})">IDE-Prompt</button></div></td>
+  </tr>`).join("");
+  STATE.dreamProposals = res.proposals || [];
+}
+
+async function runLiveDreamCouncil() {
+  document.getElementById("dreamCouncilMsg").textContent = "Starte 5-Runden Triple-Council auf NALA-Ressourcen...";
+  const res = await apiPost("/api/dream/run-council", {});
+  if (res.error) {
+    document.getElementById("dreamCouncilMsg").textContent = "Council-Hinweis: " + res.error;
+  } else {
+    document.getElementById("councilBadge").textContent = `VERDICT ${res.verdict} · ${res.final_score}/10 (${res.rounds_completed} Runden)`;
+    document.getElementById("dreamCouncilMsg").textContent = `✓ ${res.rounds_completed}-Runden Triple-Council abgeschlossen (${res.online_gpu_nodes} GPU-Knoten online, Delta ${res.convergence_delta_pct}% < 3.0%, Score ${res.final_score}/10).`;
+    await refreshJobs();
+  }
+}
+
+async function runWave1Mf01() {
+  document.getElementById("mf01Out").textContent = "Starte Parallel-SIMD + Apple Metal Shader Check...";
+  const res = await apiPost("/api/rsi/mf01", { blocks: 4096 });
+  document.getElementById("mf01Out").textContent = JSON.stringify(res, null, 2);
+}
+
+async function runWave1Mf02() {
+  document.getElementById("mf02Out").textContent = "Scanne Repository Read-Only (Zero-PII) & berechne 512-Expert Histogramm...";
+  const res = await apiPost("/api/rsi/mf02", {
+    repo_path: document.getElementById("mf02Repo").value.trim() || ".",
+    total_experts: (STATE.currentModel && STATE.currentModel.expert_count > 1) ? STATE.currentModel.expert_count : 512,
+    keep_pct: parseFloat(document.getElementById("mf02Keep").value) || 50
+  });
+  document.getElementById("mf02Out").textContent = JSON.stringify(res, null, 2);
+}
+
+async function runWave1Mf03(applyWrite) {
+  const src = (document.getElementById("mf03Src").value || document.getElementById("manualPath").value || "").trim();
+  const res = await apiPost("/api/rsi/mf03", {
+    src_path: src,
+    output_dir: document.getElementById("exportDir").value.trim(),
+    alpha: parseFloat(document.getElementById("ablitAlpha").value) || 1.0,
+    protect_coding: document.getElementById("ablitProtect").checked,
+    apply_write: !!applyWrite,
+    confirmed_two_click: false
+  });
+  document.getElementById("mf03Out").textContent = JSON.stringify(res, null, 2);
+}
+
+async function runWave1Mf04() {
+  document.getElementById("mf04Out").textContent = "Berechne 4D NALA-Grid Roofline Sharding & RFC 2104 HMAC-SHA256 Seal...";
+  const mid = (STATE.currentModel && STATE.currentModel.id) ? STATE.currentModel.id : "frontier-1.5tb-moe";
+  const res = await apiPost("/api/rsi/mf04", { model_id: mid, total_chunks: 128, lora_steps: 400 });
+  document.getElementById("mf04Out").textContent = JSON.stringify(res, null, 2);
+}
+
+async function runWave2Mf05() {
+  document.getElementById("mf05Out").textContent = "Starte echten Apple Silicon Metal GPU Compute Dispatch (16,7M Weights / 64 MiB Shared Memory)...";
+  const res = await apiPost("/api/rsi/mf05", { blocks: 131072 });
+  document.getElementById("mf05Out").textContent = JSON.stringify(res, null, 2);
+}
+
+async function runWave2Mf06(applyWrite) {
+  const src = (document.getElementById("mf03Src").value || document.getElementById("manualPath").value || "").trim();
+  const res = await apiPost("/api/rsi/mf06", {
+    src_path: src,
+    output_dir: document.getElementById("exportDir").value.trim(),
+    alpha: parseFloat(document.getElementById("ablitAlpha").value) || 1.0,
+    protect_coding: document.getElementById("ablitProtect").checked,
+    apply_write: !!applyWrite,
+    confirmed_two_click: false
+  });
+  document.getElementById("mf06Out").textContent = JSON.stringify(res, null, 2);
+}
+
+async function runWave2Mf07(applyWrite) {
+  const src = (document.getElementById("mf03Src").value || document.getElementById("manualPath").value || "").trim();
+  const res = await apiPost("/api/rsi/mf07", {
+    src_path: src,
+    output_dir: document.getElementById("exportDir").value.trim(),
+    adapters: STATE.loras,
+    max_drift_pct: 12.0,
+    apply_write: !!applyWrite,
+    confirmed_two_click: false
+  });
+  document.getElementById("mf07Out").textContent = JSON.stringify(res, null, 2);
+}
+
+async function genIdePrompt(idx) {
+  const p = (STATE.dreamProposals || [])[idx];
+  if (!p) return;
+  const ide = document.getElementById("ideTargetSelect").value;
+  const res = await apiPost("/api/dream/prompt", { proposal_id: p.id, ide });
+  if (res.prompt) {
+    document.getElementById("idePromptBox").textContent = res.prompt;
+  } else {
+    document.getElementById("idePromptBox").textContent = `[${ide}] Implementiere ${p.id} (${p.title}) in NALA-ModelForge-RS.\n\n${MANDATORY_FOOTER}`;
+  }
+}
+
+function copyText(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent || "").catch(() => {});
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// HTML5 Dropzone visual + path hint (macOS native NSDraggingDestination handles true zero-copy paths!)
+const dz = document.getElementById("dropZone");
+dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("dragover"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+dz.addEventListener("drop", e => {
+  e.preventDefault();
+  dz.classList.remove("dragover");
+  const txt = e.dataTransfer && e.dataTransfer.getData("text/plain");
+  if (txt && (txt.startsWith("/") || txt.startsWith("file://"))) {
+    const clean = decodeURIComponent(txt.replace(/^file:\/\//, "")).trim();
+    window.onNativeDrop(clean);
+  }
+});
+
+async function bootstrap() {
+  const [health, hw, presets] = await Promise.all([
+    apiGet("/api/health"),
+    apiGet("/api/hardware"),
+    apiGet("/api/presets")
+  ]);
+  if (health.version) document.getElementById("verBadge").textContent = "v" + health.version;
+  if (hw.local) {
+    document.getElementById("hwPill").textContent = `${hw.local.cpu_brand} · ${hw.local.total_ram_gb} GB · ${hw.local.recommended_backend}`;
+  }
+  STATE.hwProfiles = hw.profiles || [];
+  const hwSel = document.getElementById("hwSelect");
+  hwSel.innerHTML = STATE.hwProfiles.map(h => `<option value="${h.id}">${h.name}</option>`).join("") +
+    `<option value="custom">Custom Hardware (Manuell GB / GB/s eingeben)</option>`;
+
+  STATE.presets = presets.presets || [];
+  const pSel = document.getElementById("presetSelect");
+  pSel.innerHTML = STATE.presets.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+
+  renderLoras();
+  if (STATE.presets.length) {
+    STATE.currentModel = STATE.presets[0];
+    renderModelMeta(STATE.presets[0]);
+  }
+  await recalcPlan();
+  setLang("de");
+  probeMcpCore();
+  probeRag();
+  probeGrid();
+  loadDreamMatrix();
+  runAbliterationKernel();
+  setInterval(refreshJobs, 3000);
+}
+
+bootstrap();
+</script>
+</body>
+</html>
